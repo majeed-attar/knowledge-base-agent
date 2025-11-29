@@ -1,6 +1,5 @@
 streamlit
-langchain
-langchain-community
+langchain==0.1.20
 chromadb
 pypdf
 sentence-transformers
