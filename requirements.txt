@@ -1,7 +1,6 @@
 streamlit
-langchain==0.1.20
-openai
-pypdf
+langchain
+langchain-community
 chromadb
-python-dotenv
-tiktoken
+pypdf
+sentence-transformers
