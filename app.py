@@ -1,21 +1,22 @@
+import os
 import streamlit as st
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain.chains import RetrievalQA
 from langchain_community.embeddings import HuggingFaceEmbeddings
-
-from langchain_community.chat_models import ChatOllama
-import os
 
 # ---------- PAGE SETUP ----------
 st.set_page_config(page_title="Knowledge Base Agent", page_icon="🤖")
-st.title("🤖 Knowledge Base Agent")
-st.write("Upload documents and ask questions! (Runs fully LOCAL using Ollama – no API key needed)")
+st.title("🤖 Knowledge Base Agent (Offline & Free)")
+st.write(
+    "Upload PDF documents and ask questions. The app finds the most relevant parts "
+    "from your documents using local AI embeddings (no API keys needed)."
+)
 
 # ---------- SESSION STATE ----------
 if "vectorstore" not in st.session_state:
     st.session_state.vectorstore = None
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -27,9 +28,8 @@ uploaded_files = st.file_uploader(
 )
 
 # ---------- PROCESS DOCUMENTS ----------
-# ---------- PROCESS DOCUMENTS ----------
 if uploaded_files and st.button("Process Documents"):
-    with st.spinner("Processing documents with local models..."):
+    with st.spinner("Processing documents with local embeddings..."):
         all_docs = []
 
         for file in uploaded_files:
@@ -66,8 +66,7 @@ if uploaded_files and st.button("Process Documents"):
             f"✅ Processed {len(all_docs)} chunks from {len(uploaded_files)} documents!"
         )
 
-
-# ---------- CHAT INTERFACE ----------
+# ---------- CHAT / QUERY INTERFACE ----------
 if st.session_state.vectorstore:
     # Show previous messages
     for msg in st.session_state.messages:
@@ -76,35 +75,44 @@ if st.session_state.vectorstore:
 
     # User input
     if query := st.chat_input("Ask a question about your documents..."):
+        # Store and show user message
         st.session_state.messages.append({"role": "user", "content": query})
-
         with st.chat_message("user"):
             st.write(query)
 
+        # Get relevant document chunks (no LLM, just smart search)
         with st.chat_message("assistant"):
-            with st.spinner("Thinking with local model (mistral)..."):
-                # Local LLM from Ollama
-                llm = ChatOllama(model="mistral", temperature=0)
+            with st.spinner("Searching in your documents..."):
+                docs = st.session_state.vectorstore.similarity_search(query, k=3)
 
-                # RetrievalQA chain using local LLM + local embeddings
-                qa = RetrievalQA.from_chain_type(
-                    llm=llm,
-                    retriever=st.session_state.vectorstore.as_retriever(),
-                    return_source_documents=True
-                )
+                if not docs:
+                    answer = "I couldn't find relevant information in the uploaded documents."
+                    st.write(answer)
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": answer}
+                    )
+                else:
+                    snippets = []
+                    for i, d in enumerate(docs, start=1):
+                        snippet = d.page_content.strip().replace("\n", " ")
+                        if len(snippet) > 400:
+                            snippet = snippet[:400] + "..."
+                        snippets.append(f"**Snippet {i}:** {snippet}")
 
-                result = qa(query)
-                response = result["result"]
+                    answer = (
+                        "Here are the most relevant parts I found in your documents:\n\n"
+                        + "\n\n---\n\n".join(snippets)
+                    )
 
-                st.write(response)
+                    st.markdown(answer)
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": answer}
+                    )
 
-                # Show sources
-                with st.expander("📄 Sources from your PDFs"):
-                    for doc in result["source_documents"][:3]:
-                        st.write(doc.page_content[:300] + " ...")
-
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": response}
-                )
+            # Optional: show raw sources
+            with st.expander("📄 Full source chunks"):
+                for d in docs:
+                    st.write(d.page_content)
+                    st.markdown("---")
 else:
     st.info("👆 Upload documents above and click **Process Documents** to get started.")
