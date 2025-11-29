@@ -3,7 +3,7 @@ import streamlit as st
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings
 
 # ---------- PAGE SETUP ----------
 st.set_page_config(page_title="Knowledge Base Agent", page_icon="🤖")
@@ -116,3 +116,4 @@ if st.session_state.vectorstore:
                     st.markdown("---")
 else:
     st.info("👆 Upload documents above and click **Process Documents** to get started.")
+
